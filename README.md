@@ -374,13 +374,9 @@ Install Dependencies
 
 ```bash
 pip install pandas
-
 pip install sqlalchemy
-
 pip install psycopg2-binary
-
 pip install openpyxl
-
 pip install python-dotenv
 ```
 
@@ -398,9 +394,7 @@ Create schemas
 
 ```
 raw
-
 staging
-
 dwh
 ```
 
@@ -1018,6 +1012,7 @@ raw
 ```
 
 These tables preserve the original business data and serve as the foundation for the Silver transformation layer.
+
 # 🔄 Data Transformation Pipeline
 
 After all source data has been successfully imported into the **raw** schema, the next stage of the ETL process prepares the data for analytical reporting.
@@ -1078,33 +1073,33 @@ The transformed datasets are stored in the `staging` schema before being promote
 
 The **raw** schema stores imported data exactly as it appears in the source Excel files.
 
-Characteristics
+Connecting to SQL Postgre
+
+<p align="center">
+  <img width="800" alt="Connecting to PostgreSQL" src="https://github.com/user-attachments/assets/824fe49e-6da1-4e45-b190-d6023f6d8a83" />
+</p>
+
+Read files
+
+<p align="center">
+  <img width="800" alt="Read files" src="https://github.com/user-attachments/assets/badeedfc-0d4f-4356-979a-16aaf8b33e1d" />
+</p>
+
+Load excel to sql
+
+<p align="center">
+  <img width="800" alt="Load excel to sql - step 1" src="https://github.com/user-attachments/assets/c904f43c-0b04-4338-bc53-42bb4f088df2" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Load excel to sql - step 2" src="https://github.com/user-attachments/assets/69355abe-bd87-474a-aedb-37d3f2608534" />
+</p>
 
 - Preserve original data
 - No business transformation
 - Append-only loading
 - ETL metadata included
 - Data lineage maintained
-
-Example
-
-```text
-raw
-
-├── customer_master
-
-├── employee_master
-
-├── product_master
-
-├── sales_target_target_v1
-
-├── sales_transactions
-
-└── ingest_log
-```
-
----
 
 # 📖 Stage 2 — Staging Schema
 
@@ -1157,6 +1152,48 @@ staging.customer_master
 
 The cleaned datasets stored in `staging` provide a reliable source for downstream reporting and analytics.
 
+Table after cleaning by SQL
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 1" src="https://github.com/user-attachments/assets/07935910-5c81-43c0-98b9-bae8fdcb54a5" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 2" src="https://github.com/user-attachments/assets/03663da0-c914-4688-aa0c-9f84ab9d856d" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 3" src="https://github.com/user-attachments/assets/e470acd0-a1b0-4365-ad0b-aebe1800668a" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 4" src="https://github.com/user-attachments/assets/0e39c705-1765-4187-abf8-3ea4c534b0ad" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 5" src="https://github.com/user-attachments/assets/42e28f87-0073-4d50-b214-905233be5aeb" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 6" src="https://github.com/user-attachments/assets/2ef0eea0-e335-40a4-8468-d9914360152d" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 7" src="https://github.com/user-attachments/assets/95b03f88-54c0-4445-a51b-a95bd6908695" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 8" src="https://github.com/user-attachments/assets/a1902ac6-c0de-4bee-97bf-4f5c107c5c36" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 9" src="https://github.com/user-attachments/assets/879090de-906b-458b-a518-71aaaedf2dc4" />
+</p>
+
+<p align="center">
+  <img width="800" alt="Table after cleaning 10" src="https://github.com/user-attachments/assets/7425f89b-f2d9-4b38-9707-15a5a68e2520" />
+</p>
+
 ---
 
 # 📖 Stage 3 — Data Warehouse (dwh)
@@ -1173,6 +1210,177 @@ Typical objects stored in this schema include:
 - Data marts
 
 These datasets are designed for fast querying and efficient visualization in Power BI.
+
+<p align="center">
+  <img width="800" alt="DWH schema" src="https://github.com/user-attachments/assets/d067780b-452a-4afa-8521-ef743903c8b9" />
+</p>
+
+### Sample scripts
+
+**Dim_Date**
+
+```sql
+CREATE TABLE dwh.dim_date AS
+SELECT 
+    gs::date AS date,
+    EXTRACT(YEAR FROM gs) AS year,
+    EXTRACT(MONTH FROM gs) AS month,
+    EXTRACT(DAY FROM gs) AS day,
+    EXTRACT(WEEK FROM gs) AS week,
+    EXTRACT(QUARTER FROM gs) AS quarter,
+    TO_CHAR(gs, 'Month') AS month_name,
+    CASE 
+        WHEN EXTRACT(MONTH FROM gs) BETWEEN 1 AND 6 THEN 'H1'
+        ELSE 'H2'
+    END AS fiscal_half,
+    CASE 
+        WHEN EXTRACT(MONTH FROM gs) BETWEEN 1 AND 6 
+             THEN EXTRACT(YEAR FROM gs) 
+        ELSE EXTRACT(YEAR FROM gs)
+    END AS fiscal_year
+FROM generate_series('2020-01-01'::date, '2030-12-31'::date, interval '1 day') AS gs;
+```
+
+**Dim_Employees (SCD Type 2)**
+
+```sql
+CREATE TABLE dwh.dim_employees (
+    employee_id    TEXT,
+    full_name      TEXT,
+    gender         TEXT,
+    position       TEXT,
+    region         TEXT,
+    team           TEXT,
+    email          TEXT,
+    phone          TEXT,
+    status         TEXT,
+    version        TEXT,
+    join_date      DATE,
+    date_of_birth  DATE,
+    effective_from DATE,
+    effective_to   DATE,
+    PRIMARY KEY (employee_id, effective_from)
+);
+
+-- Initial load from v1
+INSERT INTO dwh.dim_employees (
+    employee_id, full_name, gender, region, team, position,
+    email, phone, status, version, join_date, date_of_birth,
+    effective_from, effective_to
+)
+SELECT
+    employee_id, full_name, gender, region, team, position,
+    email, phone, 'active', version, join_date, date_of_birth,
+    effective_date, DATE '9999-12-31'
+FROM staging.stg_employee_master_v1;
+
+-- Close old records when attributes change (v2)
+UPDATE dwh.dim_employees d
+SET
+    effective_to = v.effective_date - INTERVAL '1 day',
+    status = 'inactive'
+FROM staging.stg_employee_master_v2 v
+WHERE d.employee_id = v.employee_id
+  AND d.effective_to = DATE '9999-12-31'
+  AND (
+        COALESCE(d.region, '') <> COALESCE(v.region, '')
+     OR COALESCE(d.team, '')   <> COALESCE(v.team, '')
+  );
+
+-- Insert new version rows (v2)
+INSERT INTO dwh.dim_employees (
+    employee_id, full_name, gender, region, team, position,
+    email, phone, status, version, join_date, date_of_birth,
+    effective_from, effective_to
+)
+SELECT
+    v.employee_id, v.full_name, v.gender, v.region, v.team, v.position,
+    v.email, v.phone, 'active', v.version, v.join_date, v.date_of_birth,
+    v.effective_date, DATE '9999-12-31'
+FROM staging.stg_employee_master_v2 v
+JOIN dwh.dim_employees d
+     ON d.employee_id = v.employee_id
+WHERE
+      d.status = 'inactive'
+  AND d.effective_to = v.effective_date - INTERVAL '1 day';
+```
+
+**Dim_Customer_Master**
+
+```sql
+CREATE TABLE dwh.dim_customer_master (
+    customer_id    TEXT,
+    customer_name  TEXT,
+    customer_type  TEXT,
+    province       TEXT,
+    region         TEXT,
+    team           TEXT,
+    email          TEXT,
+    phone          TEXT,
+    status         TEXT,
+    version        TEXT,
+    join_date      DATE,
+    date_of_birth  DATE,
+    effective_from DATE,
+    effective_to   DATE,
+    PRIMARY KEY (customer_id, effective_from)
+);
+```
+
+**Deduplicate Fact Table**
+
+```sql
+SELECT DISTINCT *
+FROM dwh.fact_targets;
+
+DELETE FROM dwh.fact_targets
+WHERE id NOT IN (
+    SELECT id
+    FROM (
+        SELECT id,
+               ROW_NUMBER() OVER (PARTITION BY employee_id, employ_col ORDER BY id) AS rn
+        FROM dwh.fact_targets
+    ) t
+    WHERE rn = 1
+);
+```
+
+**Add Surrogate Key & Map to Fact Tables**
+
+```sql
+ALTER TABLE dwh.dim_employees
+ADD COLUMN employee_key INT GENERATED ALWAYS AS IDENTITY;
+
+-- Fact Sale
+ALTER TABLE dwh.fact_sale
+ADD COLUMN employee_key INT;
+
+UPDATE dwh.fact_sale f
+SET employee_key = d.employee_key
+FROM dwh.dim_employees d
+WHERE f.employee_id = d.employee_id
+  AND f.order_date BETWEEN d.effective_from AND d.effective_to;
+
+-- Fact Targets
+ALTER TABLE dwh.fact_targets
+ADD COLUMN employee_key INT;
+
+UPDATE dwh.fact_targets f
+SET employee_key = d.employee_key
+FROM dwh.dim_employees d
+WHERE f.employee_id = d.employee_id
+  AND f.effective_from BETWEEN d.effective_from AND d.effective_to;
+
+-- Fact Return
+ALTER TABLE dwh.fact_return
+ADD COLUMN employee_key INT;
+
+UPDATE dwh.fact_return f
+SET employee_key = d.employee_key
+FROM dwh.dim_employees d
+WHERE f.employee_id = d.employee_id
+  AND f.return_date BETWEEN d.effective_from AND d.effective_to;
+```
 
 ---
 
