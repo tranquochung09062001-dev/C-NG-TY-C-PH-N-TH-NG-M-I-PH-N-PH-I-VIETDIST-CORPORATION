@@ -14,7 +14,7 @@
 - pgAdmin
 - Power BI Desktop
 - Git & GitHub
-
+- Download Full File: https://drive.google.com/file/d/1G44ZOlrqCl5BCjhFKrIMOGd1GTrpAELg/view?usp=drive_link
 ---
 
 # 📑 Table of Contents
